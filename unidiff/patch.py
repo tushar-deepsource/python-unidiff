@@ -25,6 +25,7 @@
 """Classes used by the unified diff parser to keep the diff data."""
 
 from __future__ import unicode_literals
+import ast
 
 import codecs
 import sys
@@ -481,14 +482,19 @@ class PatchSet(list):
                 line = line.decode(encoding)
 
             # check for a git file rename
+            is_diff_git_quoted_header = RE_DIFF_GIT_HEADER_QUOTED.match(line)
             is_diff_git_header = RE_DIFF_GIT_HEADER.match(line) or \
-                RE_DIFF_GIT_HEADER_QUOTED.match(line) or \
                 RE_DIFF_GIT_HEADER_URI_LIKE.match(line) or \
                 RE_DIFF_GIT_HEADER_NO_PREFIX.match(line)
-            if is_diff_git_header:
+            if is_diff_git_quoted_header or is_diff_git_header:
+                header = is_diff_git_quoted_header or is_diff_git_header
                 patch_info = PatchInfo()
-                source_file = is_diff_git_header.group('source')
-                target_file = is_diff_git_header.group('target')
+                source_file = header.group('source')
+                target_file = header.group('target')
+                if is_diff_git_quoted_header:
+                    source_file = _decode_utf8(source_file)
+                    target_file = _decode_utf8(target_file)
+
                 current_file = PatchedFile(
                     patch_info, source_file, target_file, None, None)
                 self.append(current_file)
@@ -534,7 +540,7 @@ class PatchSet(list):
                 target_timestamp = is_target_filename.group('timestamp')
                 if current_file is not None and not (current_file.target_file == target_file):
                     # Test for quoted file name
-                    target_file = _unquote(target_file.strip())
+                    target_file = _decode_utf8(_unquote(target_file.strip()))
                     if current_file.target_file != target_file:
                         raise UnidiffParseError('Target without source: %s' % line)
                 if current_file is None:
@@ -653,3 +659,10 @@ def _unquote(string):
         return string[1:-1]
     
     return string
+
+def _decode_utf8(string):
+    """
+    When git diff returns a quoted file name, it's usually utf8 encoded.
+    We have to interpret the escapes ourselves, so we use literal eval.
+    """
+    return ast.literal_eval(f'b"{string}"').decode()

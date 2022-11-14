@@ -345,9 +345,9 @@ class TestUnidiffParser(unittest.TestCase):
         self.assertEqual(len(res), 1)
 
         self.assertEqual(res[0].source_file, '/dev/null')
-        self.assertEqual(res[0].target_file, 'b/A \\303\\242 B.py')
+        self.assertEqual(res[0].target_file, 'b/A â B.py')
         self.assertTrue(res[0].is_added_file)
-        self.assertEqual(res[0].path, 'A \\303\\242 B.py')
+        self.assertEqual(res[0].path, 'A â B.py')
 
 
     def test_deleted_file(self):
